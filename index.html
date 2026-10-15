@@ -1,1 +1,332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamTri</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; background-color: #f4f4f9; }
+        
+        /* --- KELAS UTAMA --- */
+        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; position: relative; }
+        
+        input, select { width: 100%; padding: 12px; margin: 8px 0 15px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; }
+        .input-group { text-align: left; margin-bottom: 5px; }
+        .input-group label { font-size: 0.85rem; font-weight: bold; color: #555; }
+        
+        button { width: 100%; padding: 15px; font-size: 1rem; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; color: white; margin-bottom: 10px; transition: 0.2s; }
+        .btn-lanjut { background-color: #007bff; }
+        .btn-ujian { background-color: #dc3545; } 
+        .btn-tugas { background-color: #28a745; }
+        .btn-admin { background-color: #333; }
+        .btn-download { background-color: #17a2b8; }
+        button:disabled { background-color: #999; cursor: not-allowed; }
+
+        .btn-secret { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #ccc; width: auto; padding: 0; }
+        
+        #portal-home, #exam-container, #admin-panel { display: none; }
+        .status-text { font-size: 0.85rem; color: #ff9800; font-weight: bold; margin-bottom: 15px; }
+        .divider { margin: 20px 0; border: 0; border-top: 2px dashed #eee; }
+
+        /* --- HEADER CBT & IFRAME --- */
+        #exam-container { width: 100%; height: 100vh; flex-direction: column; }
+        .exam-header {
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: #ffffff; height: 50px; padding: 0 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 100;
+        }
+        .exam-header .status-teks { font-size: 0.85rem; font-weight: bold; color: #555; display: flex; align-items: center; gap: 8px; }
+        .dot-indicator { width: 8px; height: 8px; background-color: #28a745; border-radius: 50%; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        
+        .btn-exit-header { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; width: auto; margin: 0; }
+        iframe { width: 100%; flex-grow: 1; border: none; }
+        
+        /* --- LAYAR MERAH (HUKUMAN) --- */
+        #warning-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220, 53, 69, 0.95); color: white; z-index: 9999; text-align: center; padding-top: 25vh; }
+        
+        /* --- CSS CREDIT DEVELOPER --- */
+        .developer-credit {
+            margin-top: 25px;
+            font-size: 0.75rem;
+            color: #888;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            letter-spacing: 0.5px;
+        }
+        .developer-credit span {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body> <!-- Perhatikan: Atribut gembok dipindah ke JavaScript agar lebih pintar -->
+
+    <!-- 1. LOGIN SISWA -->
+    <div class="container" id="login-screen">
+        <div class="card">
+            <button class="btn-secret" onclick="bukaAdmin()">⚙️</button>
+            <h2 style="margin-top: 0;">Portal Evaluasi</h2>
+            <p style="color: #666;">Masukkan identitas sebelum memulai</p>
+            <input type="text" id="namaSiswa" placeholder="Nama Lengkap" required>
+            <select id="kelasSiswa">
+                <option value="X Fisika">Kelas X Fisika</option>
+                <option value="XI Fisika">Kelas XI Fisika</option>
+                <option value="XII Fisika">Kelas XII Fisika</option>
+            </select>
+            <button class="btn-lanjut" onclick="masukPortal()">Masuk Portal</button>
+            <div class="developer-credit">
+                Developed by <span>pakgurutri</span> &copy; 2026
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. PILIH MODE -->
+    <div class="container" id="portal-home">
+        <div class="card">
+            <h2>Pilih Sesi</h2>
+            <div id="loading-status" class="status-text">⏳ Sinkronisasi dengan server...</div>
+            <button id="btn-mode-ujian" class="btn-ujian" disabled onclick="mulaiEvaluasi('ujian', 'Ujian Ketat')">📝 Mode Ujian (Diawasi)</button>
+            <button id="btn-mode-tugas" class="btn-tugas" disabled onclick="mulaiEvaluasi('tugas', 'Tugas Mandiri')">📚 Mode Tugas (Bebas)</button>
+        </div>
+    </div>
+
+    <!-- 3. PANEL ADMIN (YANG ADA TOMBOL DOWNLOAD/SHEETS) -->
+    <div class="container" id="admin-panel">
+        <div class="card" style="max-height: 90vh; overflow-y: auto;">
+            <h2 style="color:#333; margin-top:0;">⚙️ Panel Admin</h2>
+            <p style="font-size:0.85rem; color:#666;">Ubah pengaturan sistem secara real-time.</p>
+            
+            <div class="input-group">
+                <label>Link G-Form Ujian</label>
+                <input type="text" id="inputLinkUjian" placeholder="Paste Link Ujian">
+            </div>
+            <div class="input-group">
+                <label>Link G-Form Tugas</label>
+                <input type="text" id="inputLinkTugas" placeholder="Paste Link Tugas">
+            </div>
+            <div class="input-group">
+                <label>PIN Buka Kunci Layar (Untuk Guru)</label>
+                <input type="text" id="inputPinGuru" placeholder="Contoh: 8899">
+            </div>
+            <div class="input-group">
+                <label>Batas Toleransi Pindah Tab</label>
+                <input type="number" id="inputBatas" placeholder="Contoh: 3">
+            </div>
+            
+            <button class="btn-admin" onclick="simpanPengaturan()">💾 Simpan Pengaturan</button>
+            
+            <!-- SISIPAN TOMBOL REKAP/DOWNLOAD DI SINI -->
+            <hr class="divider">
+            <h3 style="margin: 0 0 10px 0; font-size: 1.1rem; color: #17a2b8;">📊 Rekap Pelanggaran</h3>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Lihat dan filter data kecurangan langsung di Google Sheets.</p>
+            <button class="btn-download" onclick="bukaGoogleSheets()">📊 Buka Google Sheets Rekap</button>
+
+            <button class="btn-secret" style="position:static; margin-top:15px; color:#dc3545;" onclick="tutupAdmin()">Batal / Tutup Panel</button>
+        </div>
+    </div>
+
+    <!-- 4. IFRAME UJIAN (Dengan Header CBT) -->
+    <div id="exam-container">
+        <div class="exam-header">
+            <div class="status-teks">
+                <div class="dot-indicator"></div>
+                <span id="label-mode-ujian">Sistem Pengawasan Aktif</span>
+            </div>
+            <button class="btn-exit-header" onclick="siswaSelesai()">🚪 Akhiri & Keluar</button>
+        </div>
+        <iframe id="exam-frame" src=""></iframe>
+    </div>
+    
+    <!-- 5. LAYAR MERAH -->
+    <div id="warning-screen">
+        <h1>⚠️ PERINGATAN!</h1>
+        <p id="teks-peringatan" style="font-size: 1.1rem; padding: 0 20px;">Anda terdeteksi keluar dari halaman ujian.</p>
+        <button id="btn-mengerti" onclick="kembaliUjian()" style="background: white; color: #dc3545; width: auto; padding: 10px 20px; border-radius: 5px;">Saya Mengerti</button>
+        <button id="btn-buka-kunci" onclick="bukaKunciGuru()" style="display: none; background: #ffc107; color: #333; width: auto; padding: 10px 20px; border-radius: 5px; margin-top: 15px;">🔑 Buka Kunci (Guru)</button>
+    </div>
+
+    <script>
+        // Paste Link Google Sheets Rekap Pelanggaranmu di Sini
+        const LINK_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/18x-HnUPqpfMfAe2RSkU5eBbVQycEivJOFQb9-RNd_rs/edit";
+        
+        // ==========================================
+        // WAJIB GANTI URL DI BAWAH INI DENGAN URL WEB APP ANDA
+        const URL_APPSCRIPT = "https://script.google.com/macros/s/AKfycbxgNc9ore-o6l4SQeNNhWk_H35sh0WhjO36zfHaArpVh7-bHQETYk8ed02oACWplWWNDg/exec";
+        
+        // PIN ADMIN UNTUK AKSES PANEL
+        const PIN_ADMIN = "123456"; 
+        // ==========================================
+
+        let dataServer = { ujian: "", tugas: "", pin_guru: "8899", batas_toleransi: 3 };
+        let sistemAktif = false, modeSaatIni = "", pelanggaran = 0;
+
+        // --- SMART ANTI-COPAS (Kecuali di kolom input Panel Admin) ---
+        document.addEventListener('contextmenu', function(e) { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
+        document.addEventListener('copy', function(e) { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
+
+        // --- FETCH DATA DARI GOOGLE SHEETS ---
+        window.onload = function() {
+            fetch(URL_APPSCRIPT)
+                .then(res => res.json())
+                .then(data => {
+                    dataServer = data;
+                    document.getElementById("loading-status").innerText = "✅ Sistem Siap!";
+                    document.getElementById("loading-status").style.color = "#28a745";
+                    document.getElementById("btn-mode-ujian").disabled = false;
+                    document.getElementById("btn-mode-tugas").disabled = false;
+                    
+                    document.getElementById("inputLinkUjian").value = data.ujian;
+                    document.getElementById("inputLinkTugas").value = data.tugas;
+                    document.getElementById("inputPinGuru").value = data.pin_guru;
+                    document.getElementById("inputBatas").value = data.batas_toleransi;
+                })
+                .catch(err => {
+                    document.getElementById("loading-status").innerText = "❌ Gagal koneksi ke server.";
+                    document.getElementById("loading-status").style.color = "red";
+                });
+        };
+
+        // --- FUNGSI ADMIN ---
+        function bukaAdmin() {
+            let pin = prompt("Masukkan PIN Admin:");
+            if (pin === PIN_ADMIN) {
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("admin-panel").style.display = "flex";
+            } else if (pin !== null) { alert("PIN Salah!"); }
+        }
+
+        function tutupAdmin() {
+            document.getElementById("admin-panel").style.display = "none";
+            document.getElementById("login-screen").style.display = "flex";
+        }
+
+        function simpanPengaturan() {
+            let btn = document.querySelector(".btn-admin");
+            btn.innerText = "⏳ Menyimpan...";
+            
+            let formData = new URLSearchParams();
+            formData.append("action", "simpan_pengaturan");
+            formData.append("link_ujian", document.getElementById("inputLinkUjian").value);
+            formData.append("link_tugas", document.getElementById("inputLinkTugas").value);
+            formData.append("pin_guru", document.getElementById("inputPinGuru").value);
+            formData.append("batas_toleransi", document.getElementById("inputBatas").value);
+
+            fetch(URL_APPSCRIPT, {
+                method: "POST", mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                alert("Pengaturan Berhasil Disimpan!");
+                location.reload(); 
+            });
+        }
+
+        function bukaGoogleSheets() {
+            if (LINK_GOOGLE_SHEETS.includes("PASTE_ID_SHEET")) {
+                alert("Kamu belum memasukkan Link Google Sheets-mu di dalam kode!");
+                return;
+            }
+            // Buka Google Sheets di tab baru
+            window.open(LINK_GOOGLE_SHEETS, '_blank');
+        }
+
+        // --- FUNGSI SISWA ---
+        function masukPortal() {
+            if(document.getElementById("namaSiswa").value.trim() === "") { alert("Nama wajib diisi!"); return; }
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("portal-home").style.display = "flex";
+        }
+
+        function mulaiEvaluasi(jenis, modeStr) {
+            let urlTujuan = jenis === 'ujian' ? dataServer.ujian : dataServer.tugas;
+            if (!urlTujuan || urlTujuan === "") { alert("Guru belum mengatur Link untuk sesi ini!"); return; }
+
+            modeSaatIni = modeStr;
+            document.getElementById("portal-home").style.display = "none";
+            
+            // Atur tampilan header berdasarkan mode
+            if (jenis === 'ujian') {
+                document.getElementById("label-mode-ujian").innerText = "Sistem Pengawasan Aktif";
+                document.querySelector(".dot-indicator").style.backgroundColor = "#28a745"; // Hijau berkedip
+            } else {
+                document.getElementById("label-mode-ujian").innerText = "Mode Tugas (Bebas)";
+                document.querySelector(".dot-indicator").style.backgroundColor = "#ccc"; // Abu-abu diam
+                document.querySelector(".dot-indicator").style.animation = "none";
+            }
+
+            document.getElementById("exam-container").style.display = "flex";
+            document.getElementById("exam-frame").src = urlTujuan;
+            sistemAktif = true;
+        }
+
+        // --- FUNGSI KELUAR AMAN ---
+        function siswaSelesai() {
+            let konfirmasi = confirm("Apakah kamu yakin sudah klik SUBMIT di Google Form dan ingin keluar dari portal?");
+            if (konfirmasi) {
+                sistemAktif = false; 
+                pelanggaran = 0; 
+                
+                document.getElementById("exam-container").style.display = "none";
+                document.getElementById("exam-frame").src = "";
+                document.getElementById("namaSiswa").value = "";
+                document.getElementById("login-screen").style.display = "flex";
+                
+                alert("Kamu telah keluar dari ujian dengan aman. Silakan tutup browser.");
+            }
+        }
+
+        // --- SISTEM DETEKSI KECURANGAN & LOGGING ---
+        function kirimLogKeSheets() {
+            let formData = new URLSearchParams();
+            formData.append("action", "simpan_log");
+            formData.append("nama", document.getElementById("namaSiswa").value);
+            formData.append("kelas", document.getElementById("kelasSiswa").value);
+            formData.append("pelanggaran", pelanggaran);
+            formData.append("mode", modeSaatIni);
+
+            fetch(URL_APPSCRIPT, {
+                method: "POST", mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            });
+        }
+
+        document.addEventListener("visibilitychange", function() {
+            if (sistemAktif && document.hidden) {
+                pelanggaran++;
+                kirimLogKeSheets();
+
+                if (modeSaatIni === "Ujian Ketat") {
+                    document.getElementById("warning-screen").style.display = "block";
+                    
+                    if (pelanggaran >= dataServer.batas_toleransi) {
+                        document.getElementById("teks-peringatan").innerText = `Layar Terkunci! Anda telah keluar ${pelanggaran} kali. Panggil Guru Pengawas!`;
+                        document.getElementById("btn-mengerti").style.display = "none"; 
+                        document.getElementById("btn-buka-kunci").style.display = "inline-block"; 
+                    } else {
+                        document.getElementById("teks-peringatan").innerText = `Anda terdeteksi keluar dari halaman ujian. (Pelanggaran ke-${pelanggaran})`;
+                    }
+                }
+            }
+        });
+
+        function kembaliUjian() { document.getElementById("warning-screen").style.display = "none"; }
+
+        function bukaKunciGuru() {
+            let pin = prompt("Masukkan PIN Guru untuk membuka ujian:");
+            if (pin === dataServer.pin_guru) {
+                document.getElementById("warning-screen").style.display = "none";
+                document.getElementById("btn-mengerti").style.display = "inline-block";
+                document.getElementById("btn-buka-kunci").style.display = "none";
+                alert("Kunci dibuka. Jangan mengulangi lagi!");
+            } else if (pin !== null) {
+                alert("PIN Salah! Anda tidak berhak membuka layar ini.");
+            }
+        }
+    </script>
+</body>
+</html>
 
