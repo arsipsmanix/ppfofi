@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExamTri</title>
+    <title>ExamFofi</title>
     <style>
         * { box-sizing: border-box; font-family: Arial, sans-serif; }
         body, html { margin: 0; padding: 0; height: 100%; background-color: #f4f4f9; }
@@ -225,12 +225,8 @@
         }
 
         function bukaGoogleSheets() {
-            if (LINK_GOOGLE_SHEETS.includes("PASTE_ID_SHEET")) {
-                alert("Kamu belum memasukkan Link Google Sheets-mu di dalam kode!");
-                return;
-            }
-            // Buka Google Sheets di tab baru
-            window.open(LINK_GOOGLE_SHEETS, '_blank');
+            // Langsung arahkan ke link Google Sheets tanpa syarat yang bikin ribet
+            window.location.href = LINK_GOOGLE_SHEETS;
         }
 
         // --- FUNGSI SISWA ---
